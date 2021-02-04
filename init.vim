@@ -1,4 +1,35 @@
 call plug#begin('~/.config/nvim/plugged')
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" PLUGINS
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+""""""" MiniZinc
+Plug 'vale1410/vim-minizinc'
+
+""""""" Python
+" Plug 'w0rp/ale'
+
+""""""" Scala
+Plug 'derekwyatt/vim-scala'
+let g:scala_scaladoc_indent = 1
+
+""""""" Clang format
+Plug 'rhysd/vim-clang-format'
+
+""""""" Appearance
+Plug 'frankier/neovim-colors-solarized-truecolor-only' " Solarized colorscheme {{{
+set termguicolors
+set background=dark
+
+""""""" Airline
+Plug 'vim-airline/vim-airline'
+Plug 'vim-airline/vim-airline-themes'
+let g:airline_theme='minimalist'
+
+""""""" Collection of common configurations for the Nvim LSP client
+Plug 'neovim/nvim-lspconfig'
+Plug 'nvim-lua/completion-nvim'
+call plug#end()
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " General settings
@@ -10,20 +41,10 @@ set smartcase
 set softtabstop=2
 set shiftwidth=2
 set expandtab
+set noswapfile
+
 autocmd BufRead,BufNewFile *.CPP setlocal ft=cpp
 highlight Pmenu ctermbg=gray guibg=white
-
-"" TypeScript
-Plug 'HerringtonDarkholme/yats.vim'
-Plug 'mhartington/nvim-typescript', {'do': './install.sh'}
-Plug 'Shougo/denite.nvim'
-Plug 'pangloss/vim-javascript'
-
-"" PureScript
-Plug 'purescript-contrib/purescript-vim'
-syntax on
-filetype on
-filetype plugin indent on
 
 ""  Sem's footprint in Sebastian's nvim realm
 set list!
@@ -45,44 +66,81 @@ nnoremap <silent> [c ?\v^(\<\|\=\|\>){7}([^=].+)\?$<cr>
 nnoremap <silent> <tab>l :bn<cr>
 nnoremap <silent> <tab>h :bN<cr>
 
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" PLUGINS
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" Rust
+autocmd BufRead,BufNewFile *.rs syntax enable
+autocmd BufRead,BufNewFile *.rs filetype plugin indent on
 
-""""""" Swift
-Plug 'keith/swift.vim'
+" Set completeopt to have a better completion experience
+autocmd BufRead,BufNewFile *.rs set completeopt=menuone,noinsert,noselect
 
-""""""" Scala
-Plug 'derekwyatt/vim-scala'
-let g:scala_scaladoc_indent = 1
+" Avoid showing extra messages when using completion
+autocmd BufRead,BufNewFile *.rs set shortmess+=c
 
-""""""" Clang format
-Plug 'rhysd/vim-clang-format'
+"""""""""""""""""""""""""RUST"""""""""""""""""""""""""""
 
-""""""" Appearance
-Plug 'frankier/neovim-colors-solarized-truecolor-only' " Solarized colorscheme {{{
-set termguicolors
-set background=dark
-" }}}
+" Configure lsp
+" https://github.com/neovim/nvim-lspconfig#rust_analyzer
+lua <<EOF
 
-""""""" Reason
-Plug 'autozimu/LanguageClient-neovim', { 'branch': 'next', 'do': 'bash install.sh' } " Language Server Protocol (LSP) {{{
-Plug 'reasonml-editor/vim-reason-plus'
-Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
-" }}}
+-- nvim_lsp object
+local nvim_lsp = require'lspconfig'
 
-let g:LanguageClient_serverCommands = {
-      \ 'reason': ['/home/sebastian/.local/bin/reason-language-server.exe'],
-      \ }
+-- function to attach completion when setting up lsp
+local on_attach = function(client)
+    require'completion'.on_attach(client)
+end
 
-nnoremap <silent> gd :call LanguageClient_textDocument_definition()<cr>
-nnoremap <silent> gf :call LanguageClient_textDocument_formatting()<cr>
-nnoremap <silent> <cr> :call LanguageClient_textDocument_hover()<cr>
+-- Enable rust_analyzer
+nvim_lsp.rust_analyzer.setup({ on_attach=on_attach })
 
-""""""" Airline
-Plug 'vim-airline/vim-airline'
-Plug 'vim-airline/vim-airline-themes'
-let g:airline_theme='minimalist'
-" }}}
+-- Enable diagnostics
+vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(
+  vim.lsp.diagnostic.on_publish_diagnostics, {
+    virtual_text = false,
+    signs = true,
+    update_in_insert = true,
+  }
+)
+EOF
 
-call plug#end()
+autocmd BufRead,BufNewFile *.rs nnoremap <silent> K     <cmd>lua vim.lsp.buf.hover()<CR>
+autocmd BufRead,BufNewFile *.rs nnoremap <silent> <c-k> <cmd>lua vim.lsp.buf.signature_help()<CR>
+autocmd BufRead,BufNewFile *.rs nnoremap <silent> gr    <cmd>lua vim.lsp.buf.references()<CR>
+autocmd BufRead,BufNewFile *.rs nnoremap <silent> g0    <cmd>lua vim.lsp.buf.document_symbol()<CR>
+autocmd BufRead,BufNewFile *.rs nnoremap <silent> gW    <cmd>lua vim.lsp.buf.workspace_symbol()<CR>
+autocmd BufRead,BufNewFile *.rs nnoremap <silent> gd    <cmd>lua vim.lsp.buf.definition()<CR>
+autocmd BufRead,BufNewFile *.rs nnoremap <silent> ga    <cmd>lua vim.lsp.buf.code_action()<CR>
+
+" Set updatetime for CursorHold
+" 300ms of no cursor movement to trigger CursorHold
+autocmd BufRead,BufNewFile *.rs set updatetime=300
+" Show diagnostic popup on cursor hold
+autocmd CursorHold *.rs lua vim.lsp.diagnostic.show_line_diagnostics()
+
+" Goto previous/next diagnostic warning/error
+autocmd BufRead,BufNewFile *.rs nnoremap <silent> g[ <cmd>lua vim.lsp.diagnostic.goto_prev()<CR>
+autocmd BufRead,BufNewFile *.rs nnoremap <silent> g] <cmd>lua vim.lsp.diagnostic.goto_next()<CR>
+
+" have a fixed column for the diagnostics to appear in
+" this removes the jitter when warnings/errors flow in
+autocmd BufRead,BufNewFile *.rs set signcolumn=yes
+
+"""""""""""""""""""""""""PYTHON"""""""""""""""""""""""""""
+autocmd BufRead,BufNewFile *.py set tabstop=4
+autocmd BufRead,BufNewFile *.py set softtabstop=4
+autocmd BufRead,BufNewFile *.py set shiftwidth=4
+autocmd BufRead,BufNewFile *.py set expandtab
+autocmd BufRead,BufNewFile *.py set autoindent
+autocmd BufRead,BufNewFile *.py set fileformat=unix
+autocmd BufRead,BufNewFile *.py syntax on
+autocmd BufRead,BufNewFile *.py syntax enable
+
+ " ALE vars
+autocmd BufRead,BufNewFile *.py let g:ale_lint_on_enter = 0
+autocmd BufRead,BufNewFile *.py let g:ale_disable_lsp = 1
+autocmd BufRead,BufNewFile *.py let g:ale_linters = {'python': ['flake8']}
+autocmd BufRead,BufNewFile *.py let g:ale_fixers = { 'python': ['black'] }
+autocmd BufRead,BufNewFile *.py let g:ale_lint_on_text_changed = 'never'
+autocmd BufRead,BufNewFile *.py let g:ale_echo_msg_error_str = 'E'
+autocmd BufRead,BufNewFile *.py let g:ale_echo_msg_warning_str = 'W'
+autocmd BufRead,BufNewFile *.py let g:ale_echo_msg_format = '[%linter%] %s [%severity%]'
